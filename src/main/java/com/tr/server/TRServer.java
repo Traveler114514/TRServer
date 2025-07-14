@@ -1,5 +1,6 @@
 package com.tr.server;
 
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.block.Block;
 import org.bukkit.block.Sign;
@@ -18,14 +19,16 @@ public class TRServer extends JavaPlugin implements Listener {
 
     @Override
     public void onEnable() {
-        getServer().getMessenger().registerOutgoingPluginChannel(this, "BungeeCord");
+        // 注册BungeeCord通信通道
+        Bukkit.getMessenger().registerOutgoingPluginChannel(this, "BungeeCord");
         getServer().getPluginManager().registerEvents(this, this);
-        getLogger().info("TRServer 已启用！");
+        getLogger().info("TRServer v1.0 已启用！");
+        getLogger().info("支持版本: 1.20 - 1.21");
     }
 
     @Override
     public void onDisable() {
-        getServer().getMessenger().unregisterOutgoingPluginChannel(this);
+        Bukkit.getMessenger().unregisterOutgoingPluginChannel(this);
     }
 
     @EventHandler
@@ -69,22 +72,27 @@ public class TRServer extends JavaPlugin implements Listener {
         }
         
         // 发送连接请求
-        sendConnectRequest(player, host, port);
-        player.sendMessage(ChatColor.GREEN + "正在连接到服务器 " + host + ":" + port + "...");
+        if (sendConnectRequest(player, host, port)) {
+            player.sendMessage(ChatColor.GREEN + "正在连接到服务器 " + host + ":" + port + "...");
+        } else {
+            player.sendMessage(ChatColor.RED + "连接请求发送失败！");
+        }
     }
     
-    private void sendConnectRequest(Player player, String host, int port) {
-        ByteArrayOutputStream b = new ByteArrayOutputStream();
-        DataOutputStream out = new DataOutputStream(b);
-        
+    private boolean sendConnectRequest(Player player, String host, int port) {
         try {
+            ByteArrayOutputStream b = new ByteArrayOutputStream();
+            DataOutputStream out = new DataOutputStream(b);
+            
             out.writeUTF("Connect");
             out.writeUTF(host);
             out.writeInt(port);
+            
+            player.sendPluginMessage(this, "BungeeCord", b.toByteArray());
+            return true;
         } catch (IOException e) {
-            e.printStackTrace();
+            getLogger().warning("发送连接请求时发生错误: " + e.getMessage());
+            return false;
         }
-        
-        player.sendPluginMessage(this, "BungeeCord", b.toByteArray());
     }
 }
