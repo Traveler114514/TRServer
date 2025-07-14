@@ -1,6 +1,7 @@
 package com.tr.server;
 
 import org.bukkit.ChatColor;
+import org.bukkit.GameMode;
 import org.bukkit.block.Block;
 import org.bukkit.block.Sign;
 import org.bukkit.entity.Player;
@@ -29,29 +30,23 @@ public class TRServer extends JavaPlugin implements Listener {
         getServer().getMessenger().unregisterOutgoingPluginChannel(this);
     }
 
-    // 处理告示牌编辑事件
     @EventHandler
     public void onSignEdit(SignChangeEvent event) {
         Player player = event.getPlayer();
         String firstLine = ChatColor.stripColor(event.getLine(0));
         
-        // 验证是否是服务器告示牌
         if (firstLine.equalsIgnoreCase("[Server]")) {
             String address = ChatColor.stripColor(event.getLine(1)).trim();
             
             if (address.isEmpty()) {
-                // 实时反馈错误信息
                 event.setLine(0, ChatColor.RED + "[Server]");
                 player.sendMessage(ChatColor.RED + "警告: 服务器地址未填写！");
+            } else if (!isValidAddress(address)) {
+                event.setLine(0, ChatColor.RED + "[Server]");
+                player.sendMessage(ChatColor.RED + "警告: 服务器地址格式无效！");
             } else {
-                // 验证地址格式
-                if (isValidAddress(address)) {
-                    event.setLine(0, ChatColor.DARK_BLUE + "[Server]");
-                    player.sendMessage(ChatColor.GREEN + "服务器告示牌设置成功！");
-                } else {
-                    event.setLine(0, ChatColor.RED + "[Server]");
-                    player.sendMessage(ChatColor.RED + "警告: 服务器地址格式无效！");
-                }
+                event.setLine(0, ChatColor.DARK_BLUE + "[Server]");
+                player.sendMessage(ChatColor.GREEN + "服务器告示牌设置成功！");
             }
         }
     }
@@ -71,6 +66,10 @@ public class TRServer extends JavaPlugin implements Listener {
         if (!firstLine.equalsIgnoreCase("[Server]")) return;
         
         Player player = event.getPlayer();
+        
+        // 防止管理员模式编辑告示牌
+        if (isEditingSign(player, sign)) return;
+        
         String address = ChatColor.stripColor(lines[1]).trim();
         
         if (address.isEmpty()) {
@@ -103,6 +102,23 @@ public class TRServer extends JavaPlugin implements Listener {
         } else {
             player.sendMessage(ChatColor.RED + "错误: 无法发送连接请求！");
         }
+    }
+    
+    // 判断玩家是否在尝试编辑告示牌
+    private boolean isEditingSign(Player player, Sign sign) {
+        // 检查玩家是否是创造模式并且手持告示牌或工具
+        if (player.getGameMode() == GameMode.CREATIVE) {
+            if (player.getInventory().getItemInMainHand().getType().isBlock()) {
+                return true;
+            }
+            
+            // 检查玩家是否站在告示牌前正在编辑
+            if (sign.getLocation().distance(player.getLocation()) < 1.5) {
+                return true;
+            }
+        }
+        
+        return false;
     }
     
     private boolean sendConnectRequest(Player player, String host, int port) {
