@@ -1,7 +1,7 @@
 name: TRServer
 main: com.tr.server.TRServer
 version: 1.0
-author: YourName
+author: Traveler114514
 api-version: 1.20
 depend: []
 commands: {}
