@@ -1,6 +1,5 @@
 package com.tr.server;
 
-import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.block.Block;
 import org.bukkit.block.Sign;
@@ -8,6 +7,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
+import org.bukkit.event.block.SignChangeEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -19,16 +19,41 @@ public class TRServer extends JavaPlugin implements Listener {
 
     @Override
     public void onEnable() {
-        // 注册BungeeCord通信通道
-        Bukkit.getMessenger().registerOutgoingPluginChannel(this, "BungeeCord");
+        getServer().getMessenger().registerOutgoingPluginChannel(this, "BungeeCord");
         getServer().getPluginManager().registerEvents(this, this);
-        getLogger().info("TRServer v1.0 已启用！");
-        getLogger().info("支持版本: 1.20 - 1.21");
+        getLogger().info("TRServer 1.0 已启用！");
     }
 
     @Override
     public void onDisable() {
-        Bukkit.getMessenger().unregisterOutgoingPluginChannel(this);
+        getServer().getMessenger().unregisterOutgoingPluginChannel(this);
+    }
+
+    // 处理告示牌编辑事件
+    @EventHandler
+    public void onSignEdit(SignChangeEvent event) {
+        Player player = event.getPlayer();
+        String firstLine = ChatColor.stripColor(event.getLine(0));
+        
+        // 验证是否是服务器告示牌
+        if (firstLine.equalsIgnoreCase("[Server]")) {
+            String address = ChatColor.stripColor(event.getLine(1)).trim();
+            
+            if (address.isEmpty()) {
+                // 实时反馈错误信息
+                event.setLine(0, ChatColor.RED + "[Server]");
+                player.sendMessage(ChatColor.RED + "警告: 服务器地址未填写！");
+            } else {
+                // 验证地址格式
+                if (isValidAddress(address)) {
+                    event.setLine(0, ChatColor.DARK_BLUE + "[Server]");
+                    player.sendMessage(ChatColor.GREEN + "服务器告示牌设置成功！");
+                } else {
+                    event.setLine(0, ChatColor.RED + "[Server]");
+                    player.sendMessage(ChatColor.RED + "警告: 服务器地址格式无效！");
+                }
+            }
+        }
     }
 
     @EventHandler
@@ -42,13 +67,14 @@ public class TRServer extends JavaPlugin implements Listener {
         String[] lines = sign.getLines();
         
         // 验证是否为有效的服务器跳转告示牌
-        if (!ChatColor.stripColor(lines[0]).equalsIgnoreCase("[Server]")) return;
+        String firstLine = ChatColor.stripColor(lines[0]);
+        if (!firstLine.equalsIgnoreCase("[Server]")) return;
         
         Player player = event.getPlayer();
         String address = ChatColor.stripColor(lines[1]).trim();
         
         if (address.isEmpty()) {
-            player.sendMessage(ChatColor.RED + "服务器地址未填写！");
+            player.sendMessage(ChatColor.RED + "错误: 服务器地址未填写！");
             return;
         }
 
@@ -61,7 +87,7 @@ public class TRServer extends JavaPlugin implements Listener {
             try {
                 port = Integer.parseInt(addressParts[1]);
             } catch (NumberFormatException e) {
-                player.sendMessage(ChatColor.RED + "端口格式无效！使用默认端口 25565");
+                player.sendMessage(ChatColor.RED + "警告: 端口格式无效！使用默认端口 25565");
             }
         }
         
@@ -75,7 +101,7 @@ public class TRServer extends JavaPlugin implements Listener {
         if (sendConnectRequest(player, host, port)) {
             player.sendMessage(ChatColor.GREEN + "正在连接到服务器 " + host + ":" + port + "...");
         } else {
-            player.sendMessage(ChatColor.RED + "连接请求发送失败！");
+            player.sendMessage(ChatColor.RED + "错误: 无法发送连接请求！");
         }
     }
     
@@ -91,8 +117,13 @@ public class TRServer extends JavaPlugin implements Listener {
             player.sendPluginMessage(this, "BungeeCord", b.toByteArray());
             return true;
         } catch (IOException e) {
-            getLogger().warning("发送连接请求时发生错误: " + e.getMessage());
+            getLogger().warning("连接错误: " + e.getMessage());
             return false;
         }
+    }
+    
+    private boolean isValidAddress(String address) {
+        // 简单的地址格式验证
+        return !address.contains(" ") && address.contains(".") && address.length() > 5;
     }
 }
